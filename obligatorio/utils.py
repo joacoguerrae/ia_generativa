@@ -8,7 +8,7 @@ from sklearn.metrics import (
 )
 
 
-def evaluate(model, criterion, val_loader, device,epoch,save_sample = True):
+def evaluate(model, criterion, val_loader, device,epoch,save_sample = True,ruta_img = 'samples'):
     model.eval()
     val_loss = 0.0
 
@@ -31,8 +31,8 @@ def evaluate(model, criterion, val_loader, device,epoch,save_sample = True):
 
     if save_sample:
                 os.makedirs("samples", exist_ok=True)
-                save_image(x[:1],      f"samples/content_ep{epoch}.png")
-                save_image(out_01[:1], f"samples/styled_ep{epoch}.png")
+                save_image(x[:1],      f"{ruta_img}/content_ep{epoch}.png")
+                save_image(out_01[:1], f"{ruta_img}/styled_ep{epoch}.png")
 
     val_loss /= len(val_loader)
     return val_loss
@@ -78,6 +78,7 @@ def train(
     epochs=10,
     log_fn=print_log,
     log_every=1,
+    ruta_img = 'samples'
 ):
     epoch_train_errors = []
     epoch_val_errors = []
@@ -114,7 +115,7 @@ def train(
         train_loss /= len(train_loader)
         epoch_train_errors.append(train_loss)
 
-        val_loss = evaluate(model, criterion, val_loader, device,epoch)
+        val_loss = evaluate(model, criterion, val_loader, device,epoch,ruta_img=ruta_img)
         epoch_val_errors.append(val_loss)
 
         if do_early_stopping:
