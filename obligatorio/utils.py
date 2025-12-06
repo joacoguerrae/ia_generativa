@@ -25,9 +25,12 @@ def evaluate(model, criterion, val_loader, device,epoch,save_sample = True,ruta_
             out = model(x)                      # salida U-Net, típicamente [-1,1] si usás tanh
             out_01 = (out + 1) / 2.0            # la llevamos a [0,1] para VGG
 
-            loss, _, _, _ = criterion(out_01, x)
+            loss, lc, ls, ltv = criterion(out_01, x)
 
             val_loss += loss.item()
+            val_style_loss += ls.item()
+            val_content_loss += lc.item()
+            val_ltv_loss += ltv.item()
 
     if save_sample:
                 os.makedirs("samples", exist_ok=True)
@@ -35,7 +38,7 @@ def evaluate(model, criterion, val_loader, device,epoch,save_sample = True,ruta_
                 save_image(out_01[:1], f"{ruta_img}/styled_ep{epoch}.png")
 
     val_loss /= len(val_loader)
-    return val_loss
+    return val_loss, val_style_loss, val_content_loss, val_ltv_loss
 
 
 
@@ -78,10 +81,15 @@ def train(
     epochs=10,
     log_fn=print_log,
     log_every=1,
-    ruta_img = 'samples'
+    ruta_img = 'samples',
+    CHECKPOINTS_DIR
 ):
     epoch_train_errors = []
     epoch_val_errors = []
+    epoch_val_content_loss = []
+    epoch_val_style_loss = []
+    epoch_val_ltv_loss = []
+
 
     if do_early_stopping:
         early_stopping = EarlyStopping(patience=patience)
@@ -111,11 +119,23 @@ def train(
             optimizer.step()
 
             train_loss += loss.item()
+            train_style_loss += ls.item()
+            train_content_loss += lc.item()
+            train_ltv_loss += ltv.item()
 
         train_loss /= len(train_loader)
         epoch_train_errors.append(train_loss)
+        epoch_val_content_loss.append(train_content_loss)
+        epoch_val_style_loss.append(train_style_loss)
+        epoch_val_ltv_loss.append(train_ltv_loss)
 
-        val_loss = evaluate(model, criterion, val_loader, device,epoch,ruta_img=ruta_img)
+        if epoch % 50 == 0:
+          checkpoint_name = os.path.join(CHECKPOINTS_DIR, f'model_epoch_{epoch:03d}.pth')
+          torch.save(model.state_dict(), checkpoint_name)
+          print(f"Saved model checkpoint to {checkpoint_name}")
+
+
+        val_loss, val_style_loss, val_content_loss, val_ltv_loss = evaluate(model, criterion, val_loader, device,epoch,ruta_img=ruta_img)
         epoch_val_errors.append(val_loss)
 
         if do_early_stopping:
@@ -130,7 +150,7 @@ def train(
             )
             break
 
-    return epoch_train_errors, epoch_val_errors
+    return epoch_train_errors, epoch_val_errors,epoch_val_content_loss,epoch_val_style_loss,epoch_val_ltv_loss
 
 
 
